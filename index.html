@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apartment Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation -->
+    <nav class="bg-blue-600 p-4 text-white">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">AMS</h1>
+            <div class="space-x-4">
+                <button onclick="showPanel('resident')" class="hover:text-blue-200">Resident Panel</button>
+                <button onclick="showPanel('admin')" class="hover:text-blue-200">Admin Panel</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Resident Panel -->
+    <div id="residentPanel" class="container mx-auto p-4">
+        <div class="grid md:grid-cols-2 gap-6">
+            <!-- Complaint Form -->
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-2xl font-bold mb-4">Submit Complaint</h2>
+                <form id="complaintForm" class="space-y-4">
+                    <div>
+                        <label class="block mb-1">Resident Name</label>
+                        <input type="text" id="residentName" class="w-full p-2 border rounded" required>
+                        <button type="button" onclick="autoFillDetails()" class="mt-2 bg-blue-500 text-white px-4 py-1 rounded">Auto-fill</button>
+                    </div>
+                    <div>
+                        <label class="block mb-1">Room Number</label>
+                        <input type="text" id="roomNumber" class="w-full p-2 border rounded" required>
+                    </div>
+                    <div>
+                        <label class="block mb-1">Email</label>
+                        <input type="email" id="email" class="w-full p-2 border rounded" required>
+                    </div>
+                    <div>
+                        <label class="block mb-1">Complaint Description</label>
+                        <textarea id="complaintDesc" class="w-full p-2 border rounded h-32" required></textarea>
+                    </div>
+                    <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">Submit</button>
+                </form>
+            </div>
+
+            <!-- Event Registration -->
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-2xl font-bold mb-4">Upcoming Events</h2>
+                <div id="eventsList" class="space-y-4"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Panel -->
+    <div id="adminPanel" class="container mx-auto p-4 hidden">
+        <!-- Login Form -->
+        <div id="adminLogin" class="max-w-md mx-auto bg-white p-6 rounded-lg shadow">
+            <h2 class="text-2xl font-bold mb-4">Admin Login</h2>
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label class="block mb-1">Username</label>
+                    <input type="text" id="username" class="w-full p-2 border rounded" required>
+                </div>
+                <div>
+                    <label class="block mb-1">Password</label>
+                    <input type="password" id="password" class="w-full p-2 border rounded" required>
+                </div>
+                <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">Login</button>
+            </form>
+        </div>
+
+        <!-- Admin Dashboard -->
+        <div id="adminDashboard" class="hidden">
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- Complaints Management -->
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h2 class="text-2xl font-bold mb-4">Complaints Management</h2>
+                    <div id="complaintsList" class="space-y-4"></div>
+                </div>
+
+                <!-- Events Management -->
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h2 class="text-2xl font-bold mb-4">Events Management</h2>
+                    <button onclick="showNewEventForm()" class="mb-4 bg-green-600 text-white px-4 py-2 rounded">Create New Event</button>
+                    <div id="adminEventsList" class="space-y-4"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const APP_SLUG = 'apartment-management-123456';
+        
+        // Panel Navigation
+        function showPanel(panel) {
+            document.getElementById('residentPanel').classList.add('hidden');
+            document.getElementById('adminPanel').classList.add('hidden');
+            document.getElementById(panel + 'Panel').classList.remove('hidden');
+        }
+
+        // Resident Functions
+        async function autoFillDetails() {
+            const name = document.getElementById('residentName').value;
+            if (!name) return;
+
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer 8u6vGA5kBmevAaVzB7DFmCMruo32',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug: APP_SLUG,
+                        action: 'read',
+                        collection: 'residents',
+                        conditions: { name: name }
+                    })
+                });
+
+                const data = await response.json();
+                if (data.result && data.result.length > 0) {
+                    const resident = data.result[0];
+                    document.getElementById('roomNumber').value = resident.roomNumber;
+                    document.getElementById('email').value = resident.email;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        // Complaint Form Submission
+        document.getElementById('complaintForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const name = document.getElementById('residentName').value;
+            const roomNumber = document.getElementById('roomNumber').value;
+            const email = document.getElementById('email').value;
+            const complaint = document.getElementById('complaintDesc').value;
+
+            // Validation
+            if (!/^[A-Za-z\s]+$/.test(name)) {
+                swal('Error', 'Name should contain only alphabets', 'error');
+                return;
+            }
+            if (!/^\d+$/.test(roomNumber)) {
+                swal('Error', 'Room number should contain only digits', 'error');
+                return;
+            }
+            if (!/\S+@\S+\.\S+/.test(email)) {
+                swal('Error', 'Invalid email format', 'error');
+                return;
+            }
+            if (!complaint.trim()) {
+                swal('Error', 'Complaint description is required', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer 8u6vGA5kBmevAaVzB7DFmCMruo32',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug: APP_SLUG,
+                        action: 'create',
+                        collection: 'complaints',
+                        data: {
+                            name,
+                            roomNumber,
+                            email,
+                            complaint,
+                            status: 'Pending',
+                            date: new Date().toISOString()
+                        }
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    swal('Success', 'Complaint submitted successfully!', 'success');
+                    e.target.reset();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                swal('Error', 'Failed to submit complaint', 'error');
+            }
+        });
+
+        // Admin Functions
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            if (username === 'Atharva' && password === 'Atharva123') {
+                document.getElementById('adminLogin').classList.add('hidden');
+                document.getElementById('adminDashboard').classList.remove('hidden');
+                loadComplaints();
+                loadEvents();
+            } else {
+                swal('Error', 'Invalid credentials', 'error');
+            }
+        });
+
+        async function loadComplaints() {
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer 8u6vGA5kBmevAaVzB7DFmCMruo32',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug: APP_SLUG,
+                        action: 'read',
+                        collection: 'complaints'
+                    })
+                });
+
+                const data = await response.json();
+                const complaintsList = document.getElementById('complaintsList');
+                complaintsList.innerHTML = '';
+
+                data.result.forEach(complaint => {
+                    const div = document.createElement('div');
+                    div.className = 'border p-4 rounded';
+                    div.innerHTML = `
+                        <p><strong>Name:</strong> ${complaint.name}</p>
+                        <p><strong>Room:</strong> ${complaint.roomNumber}</p>
+                        <p><strong>Email:</strong> ${complaint.email}</p>
+                        <p><strong>Complaint:</strong> ${complaint.complaint}</p>
+                        <p><strong>Date:</strong> ${new Date(complaint.date).toLocaleDateString()}</p>
+                        <select onchange="updateComplaintStatus('${complaint._id}', this.value)" class="mt-2 p-2 border rounded">
+                            <option value="Pending" ${complaint.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                            <option value="Processing" ${complaint.status === 'Processing' ? 'selected' : ''}>Processing</option>
+                            <option value="Resolved" ${complaint.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
+                        </select>
+                    `;
+                    complaintsList.appendChild(div);
+                });
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        async function updateComplaintStatus(id, status) {
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer 8u6vGA5kBmevAaVzB7DFmCMruo32',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug: APP_SLUG,
+                        action: 'update',
+                        collection: 'complaints',
+                        id: id,
+                        data: { status }
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    swal('Success', 'Status updated successfully!', 'success');
+                    // Here you would typically send an email notification
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                swal('Error', 'Failed to update status', 'error');
+            }
+        }
+
+        function showNewEventForm() {
+            swal({
+                title: 'Create New Event',
+                content: {
+                    element: "div",
+                    attributes: {
+                        innerHTML: `
+                            <input type="text" id="eventTitle" placeholder="Event Title" class="swal-input">
+                            <input type="text" id="eventDesc" placeholder="Description" class="swal-input">
+                            <input type="date" id="eventDate" class="swal-input">
+                            <input type="time" id="eventTime" class="swal-input">
+                            <input type="text" id="eventVenue" placeholder="Venue" class="swal-input">
+                            <input type="number" id="eventMaxParticipants" placeholder="Max Participants" class="swal-input">
+                        `
+                    }
+                },
+                buttons: {
+                    cancel: true,
+                    confirm: true
+                }
+            }).then((value) => {
+                if (value) {
+                    createEvent();
+                }
+            });
+        }
+
+        async function createEvent() {
+            const eventData = {
+                title: document.getElementById('eventTitle').value,
+                description: document.getElementById('eventDesc').value,
+                date: document.getElementById('eventDate').value,
+                time: document.getElementById('eventTime').value,
+                venue: document.getElementById('eventVenue').value,
+                maxParticipants: document.getElementById('eventMaxParticipants').value,
+                currentParticipants: 0
+            };
+
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer 8u6vGA5kBmevAaVzB7DFmCMruo32',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug: APP_SLUG,
+                        action: 'create',
+                        collection: 'events',
+                        data: eventData
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    swal('Success', 'Event created successfully!', 'success');
+                    loadEvents();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                swal('Error', 'Failed to create event', 'error');
+            }
+        }
+
+        async function loadEvents() {
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer 8u6vGA5kBmevAaVzB7DFmCMruo32',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug: APP_SLUG,
+                        action: 'read',
+                        collection: 'events'
+                    })
+                });
+
+                const data = await response.json();
+                
+                // Update resident view
+                const eventsList = document.getElementById('eventsList');
+                eventsList.innerHTML = '';
+                
+                // Update admin view
+                const adminEventsList = document.getElementById('adminEventsList');
+                adminEventsList.innerHTML = '';
+
+                data.result.forEach(event => {
+                    // Resident view
+                    const residentDiv = document.createElement('div');
+                    residentDiv.className = 'border p-4 rounded';
+                    residentDiv.innerHTML = `
+                        <h3 class="text-xl font-bold">${event.title}</h3>
+                        <p>${event.description}</p>
+                        <p><strong>Date:</strong> ${event.date}</p>
+                        <p><strong>Time:</strong> ${event.time}</p>
+                        <p><strong>Venue:</strong> ${event.venue}</p>
+                        <p><strong>Available Spots:</strong> ${event.maxParticipants - event.currentParticipants}</p>
+                        <button onclick="registerForEvent('${event._id}')" class="mt-2 bg-blue-600 text-white px-4 py-2 rounded">Register</button>
+                    `;
+                    eventsList.appendChild(residentDiv);
+
+                    // Admin view
+                    const adminDiv = document.createElement('div');
+                    adminDiv.className = 'border p-4 rounded';
+                    adminDiv.innerHTML = `
+                        <h3 class="text-xl font-bold">${event.title}</h3>
+                        <p>${event.description}</p>
+                        <p><strong>Date:</strong> ${event.date}</p>
+                        <p><strong>Time:</strong> ${event.time}</p>
+                        <p><strong>Venue:</strong> ${event.venue}</p>
+                        <p><strong>Participants:</strong> ${event.currentParticipants}/${event.maxParticipants}</p>
+                        <button onclick="viewParticipants('${event._id}')" class="mt-2 bg-blue-600 text-white px-4 py-2 rounded">View Participants</button>
+                    `;
+                    adminEventsList.appendChild(adminDiv);
+                });
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        async function registerForEvent(eventId) {
+            const name = document.getElementById('residentName').value;
+            const email = document.getElementById('email').value;
+
+            if (!name || !email) {
+                swal('Error', 'Please fill in your name and email first', 'error');
+                return;
+            }
+
+            try {
+                // Check for duplicate registration
+                const checkResponse = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer 8u6vGA5kBmevAaVzB7DFmCMruo32',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug: APP_SLUG,
+                        action: 'read',
+                        collection: 'registrations',
+                        conditions: {
+                            eventId: eventId,
+                            email: email
+                        }
+                    })
+                });
+
+                const checkData = await checkResponse.json();
+                if (checkData.result && checkData.result.length > 0) {
+                    swal('Error', 'You have already registered for this event', 'error');
+                    return;
+                }
+
+                // Register for the event
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer 8u6vGA5kBmevAaVzB7DFmCMruo32',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug: APP_SLUG,
+                        action: 'create',
+                        collection: 'registrations',
+                        data: {
+                            eventId,
+                            name,
+                            email,
+                            registrationDate: new Date().toISOString()
+                        }
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    swal('Success', 'Registration successful!', 'success');
+                    loadEvents();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                swal('Error', 'Failed to register for event', 'error');
+            }
+        }
+
+        async function viewParticipants(eventId) {
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer 8u6vGA5kBmevAaVzB7DFmCMruo32',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug: APP_SLUG,
+                        action: 'read',
+                        collection: 'registrations',
+                        conditions: { eventId: eventId }
+                    })
+                });
+
+                const data = await response.json();
+                let participantsList = data.result.map(r => 
+                    `<p>${r.name} (${r.email})</p>`
+                ).join('');
+
+                swal({
+                    title: 'Event Participants',
+                    content: {
+                        element: "div",
+                        attributes: {
+                            innerHTML: participantsList || 'No participants yet'
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error:', error);
+                swal('Error', 'Failed to load participants', 'error');
+            }
+        }
+
+        // Initial load
+        loadEvents();
+    </script>
+
+    <style>
+        .swal-input {
+            margin: 10px 0;
+            padding: 8px;
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
